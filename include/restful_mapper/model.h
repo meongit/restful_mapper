@@ -4,6 +4,7 @@
 #include <restful_mapper/api.h>
 #include <restful_mapper/mapper.h>
 #include <restful_mapper/query.h>
+#include <iostream>
 
 namespace restful_mapper
 {
@@ -45,8 +46,10 @@ public:
 
   void from_json(std::string values, const int &flags = 0)
   {
+    std::cout << "in from json" << std::endl;
     Mapper mapper(values, flags);
     map_get(mapper);
+    std::cout << "after from json" << std::endl;
   }
 
   void from_json(std::string values, const int &flags, const bool &exists)
@@ -66,6 +69,22 @@ public:
     return mapper.dump();
   }
 
+  std::string to_text(const int &flags = 0) const
+  {
+    Mapper mapper(flags);
+    mapper.set_current_model(class_name());
+    mapper.set_parent_model("");
+    map_set(mapper);
+    //std::cout << "mapper content: " + mapper.get("interval") << std::endl;
+    //Note: Need to create mapper2 because mapper does not have a loaded parser : aboce cout fails
+    Mapper mapper2(mapper.dump(), flags);
+    if  (class_name() == "Relay")   
+      return "value=" + mapper2.get("value");
+    else
+      return "interval=" + mapper2.get("interval");
+  }
+
+
   std::string read_field(const std::string &field) const
   {
     Mapper mapper(OUTPUT_SINGLE_FIELD | KEEP_FIELDS_DIRTY | IGNORE_DIRTY_FLAG);
@@ -80,34 +99,34 @@ public:
     return to_json(KEEP_FIELDS_DIRTY).size() > 2;
   }
 
-  void reload()
+  void reload( Api& api)
   {
     if (exists())
     {
-      from_json(Api::get(url()));
+      from_json(api.get(url()));
     }
   }
 
-  void destroy()
+  void destroy(const Api& api)
   {
     if (exists())
     {
-      Api::del(url());
+      api.del(url());
 
       // Reload all attributes
       emplace_clone();
     }
   }
 
-  void save()
+  void save(Api& api)
   {
     if (exists())
     {
-      from_json(Api::put(url(), to_json()), IGNORE_MISSING_FIELDS);
+      from_json(api.post(url(), to_text()), IGNORE_MISSING_FIELDS);
     }
     else
     {
-      from_json(Api::post(url(), to_json()), IGNORE_MISSING_FIELDS);
+      from_json(api.post(url(), to_json()), IGNORE_MISSING_FIELDS);
     }
 
     exists_ = true;
@@ -131,25 +150,25 @@ public:
     reset_primary_key();
   }
 
-  void reload_one(const std::string &relationship)
+  void reload_one(const std::string &relationship, const Api& api)
   {
     if (exists())
     {
       Json::Emitter emitter;
 
       emitter.emit_map_open();
-      emitter.emit_json(relationship, Api::get(url(relationship)));
+      emitter.emit_json(relationship, api.get(url(relationship)));
       emitter.emit_map_close();
 
       from_json(emitter.dump(), IGNORE_MISSING_FIELDS);
     }
   }
 
-  void reload_many(const std::string &relationship)
+  void reload_many(const std::string &relationship, const Api& api)
   {
     if (exists())
     {
-      Json::Parser parser(Api::get(url(relationship)));
+      Json::Parser parser(api.get(url(relationship)));
 
       Json::Emitter emitter;
 
@@ -162,22 +181,22 @@ public:
     }
   }
 
-  static T find(const int &id)
+  static T find(const int &id, Api& api)
   {
     T instance;
     const_cast<Primary &>(instance.primary()).set(id, true);
     instance.exists_ = true;
 
-    instance.reload();
+    instance.reload(api);
 
     return instance;
   }
 
-  static Collection find_all()
+  static Collection find_all(const Api& api)
   {
     Collection objects;
 
-    Json::Parser collector(Api::get(T().url()));
+    Json::Parser collector(api.get(T().url()));
 
     std::vector<std::string> partials = collector.find("objects").dump_array();
     std::vector<std::string>::const_iterator i, i_end = partials.end();
@@ -193,22 +212,22 @@ public:
     return objects;
   }
 
-  static T find(Query &query)
+  static T find(Query &query, const Api& api)
   {
     T instance;
 
-    std::string url = Api::query_param(instance.url(), "q", query.single().dump());
-    instance.from_json(Api::get(url), 0, true);
+    std::string url = api.query_param(instance.url(), "q", query.single().dump());
+    instance.from_json(api.get(url), 0, true);
 
     return instance;
   }
 
-  static Collection find_all(Query &query)
+  static Collection find_all(Query &query, const Api& api)
   {
     Collection objects;
 
-    std::string url = Api::query_param(T().url(), "q", query.dump());
-    Json::Parser collector(Api::get(url));
+    std::string url = api.query_param(T().url(), "q", query.dump());
+    Json::Parser collector(api.get(url));
 
     std::vector<std::string> partials = collector.find("objects").dump_array();
     std::vector<std::string>::const_iterator i, i_end = partials.end();

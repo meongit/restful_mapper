@@ -8,6 +8,13 @@
 #include <cctype>
 #include <restful_mapper/json.h>
 
+// Struct used for sending data
+typedef struct
+{
+  const char *data;
+  size_t length;
+} RequestBody;
+
 namespace restful_mapper
 {
 
@@ -20,86 +27,89 @@ class Api
 {
 public:
   Api();
+  Api(const Api &) = default;            // Don't Implement
+  Api& operator=(const Api &) = default; // Don't implement
+
   ~Api();
 
-  static std::string get(const std::string &endpoint)
+  std::string get(const std::string &endpoint) 
   {
-    return instance().get_(endpoint);
+    return get_(endpoint);
   }
 
-  static std::string post(const std::string &endpoint, const std::string &body)
+  std::string post(const std::string &endpoint, const std::string &body) 
   {
-    return instance().post_(endpoint, body);
+    return post_(endpoint, body);
   }
 
-  static std::string put(const std::string &endpoint, const std::string &body)
+  std::string put(const std::string &endpoint, const std::string &body) 
   {
-    return instance().put_(endpoint, body);
+    return put_(endpoint, body);
   }
 
-  static std::string del(const std::string &endpoint)
+  std::string del(const std::string &endpoint) 
   {
-    return instance().del_(endpoint);
+    return del_(endpoint);
   }
 
-  static std::string escape(const std::string &value)
+  std::string escape(const std::string &value) const
   {
-    return instance().escape_(value);
+    return escape_(value);
   }
 
-  static std::string query_param(const std::string &url, const std::string &param, const std::string &value)
+  std::string query_param(const std::string &url, const std::string &param, const std::string &value) const
   {
-    return instance().query_param_(url, param, value);
+    return query_param_(url, param, value);
   }
 
-  static std::string url()
+  std::string url()  
   {
-    return instance().url_;
+    return url_;
   }
 
-  static std::string url(const std::string &endpoint)
+  std::string url(const std::string &endpoint) const
   {
-    return instance().url_ + endpoint;
+    return url_ + endpoint;
   }
 
-  static std::string set_url(const std::string &url)
+  std::string set_url(const std::string &url)
   {
-    return instance().url_ = url;
+    return url_ = url;
   }
 
-  static std::string proxy()
+  std::string proxy()
   {
-    return instance().proxy_;
+    return proxy_;
   }
 
-  static std::string set_proxy(const std::string &proxy)
+  std::string set_proxy(const std::string &proxy)
   {
-    return instance().proxy_ = proxy;
+    return proxy_ = proxy;
   }
 
-  static void clear_proxy()
+  void clear_proxy()
   {
-    instance().read_environment_proxy();
+    read_environment_proxy();
   }
 
-  static std::string username()
+  std::string username() const
   {
-    return instance().username_;
+    return username_;
   }
 
-  static std::string set_username(const std::string &username)
+  std::string set_username(const std::string &username)
   {
-    return instance().username_ = username;
+    return username_ = username;
   }
 
-  static std::string password()
+  std::string password() const
   {
-    return instance().password_;
+    return password_;
   }
 
-  static std::string set_password(const std::string &password)
+  std::string set_password(const std::string &password)
   {
-    return instance().password_ = password;
+    return password_ = password;
   }
 
 private:
@@ -110,43 +120,48 @@ private:
   static const char *user_agent_;
   static const char *content_type_;
   void *curl_handle_;
-
+  std::string responseBody_;
+  RequestBody requestBody_;
   // Dont forget to declare these two. You want to make sure they
   // are unaccessable otherwise you may accidently get copies of
   // your singleton appearing.
-  Api(Api const &);            // Don't Implement
-  void operator=(Api const &); // Don't implement
-
+ 
   /**
    * Return the singleton instance
    */
-  static Api &instance()
-  {
-      static Api instance;  // Guaranteed to be destroyed, instantiated on first use
+  //static Api &instance()
+  //{
+  //    static Api instance;  // Guaranteed to be destroyed, instantiated on first use
 
-      return instance;
-  }
+  //    return instance;
+  //}
 
-  // Curl read callback function
-  std::string send_request(const RequestType &type, const std::string &endpoint, const std::string &body) const;
+  // Curl read send request function
+  std::string send_request(const RequestType &type, const std::string &endpoint, const std::string &body);
+
+  //Curl write_callback wrapper
+  static size_t write_callback_wrapper(void *ptr, size_t size, size_t nmemb, void* api);
 
   // Curl write callback function
-  static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdata);
+  size_t write_callback(void *ptr, size_t size, size_t nmemb);//, void *userdata);
+ 
+  //Curl read_callback wrapper
+  static size_t read_callback_wrapper(void *data, size_t size, size_t nmemb, void* api);
 
   // Curl read callback function
-  static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userdata);
+  size_t read_callback(void *ptr, size_t size, size_t nmemb);//, void *userdata);
 
   // Check whether an error occurred
-  static void check_http_error(const RequestType &type, const std::string &endpoint, long &http_code, const std::string &response_body);
+  void check_http_error(const RequestType &type, const std::string &endpoint, long &http_code, const std::string &response_body) const;
 
   // Get environment proxy into proxy_
   void read_environment_proxy();
 
   // Request methods
-  std::string get_(const std::string &endpoint) const;
-  std::string post_(const std::string &endpoint, const std::string &body) const;
-  std::string put_(const std::string &endpoint, const std::string &body) const;
-  std::string del_(const std::string &endpoint) const;
+  std::string get_(const std::string &endpoint);
+  std::string post_(const std::string &endpoint, const std::string &body);
+  std::string put_(const std::string &endpoint, const std::string &body);
+  std::string del_(const std::string &endpoint);
 
   // String methods
   std::string escape_(const std::string &value) const;
